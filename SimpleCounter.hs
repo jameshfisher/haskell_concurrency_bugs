@@ -3,19 +3,12 @@ module SimpleCounter where
 import qualified Data.IORef as IORef
 import qualified Control.Concurrent as Concurrent
 import qualified Control.Monad as Monad
+import qualified Control.Monad.Extra as MonadExtra
 
 type Counter = IORef.IORef Int
 
 incrementCounter :: Counter -> IO ()
 incrementCounter c = IORef.modifyIORef' c succ
-
-loop :: IO () -> IO ()
-loop body = body >> loop body
-
-if_ :: IO Bool -> IO () -> IO ()
-if_ cond body = do
-  exec <- cond
-  Monad.when exec body
 
 criticalSection :: IO ()
 criticalSection = do
@@ -27,10 +20,9 @@ prog = do
   counter <- IORef.newIORef 0
   let process n = do
         _ <- Concurrent.forkIO $
-          loop $ do
+          Monad.forever $ do
             incrementCounter counter
-            if_ (fmap (==n) (IORef.readIORef counter)) criticalSection
+            MonadExtra.whenM (fmap (==n) (IORef.readIORef counter)) criticalSection
         return ()
   process 5
   process 3
-
