@@ -50,15 +50,38 @@ progDeadlock = do
   m2 <- Concurrent.newMVar ()
   Monad.void $ Async.concurrently (thread1 m1 m2) (thread2 m1 m2)
   where
-    thread1 m1 m2= do
+    thread1 m1 m2 = do
       Concurrent.takeMVar m1
       Concurrent.takeMVar m2
       criticalSection
       Concurrent.putMVar m1 ()
       Concurrent.putMVar m2 ()
-    thread2 m1 m2= do
+    thread2 m1 m2 = do
       Concurrent.takeMVar m2
       Concurrent.takeMVar m1
       criticalSection
       Concurrent.putMVar m2 ()
       Concurrent.putMVar m1 ()
+
+progCountdownEvent :: IO ()
+progCountdownEvent = do
+  progress <- IORef.newIORef 0
+  event <- Concurrent.newQSem 3
+  Monad.void $ Async.concurrently (thread1 progress event) (thread2 progress event)
+  where
+    thread1 progress event = do
+      IORef.modifyIORef' progress (+ 20)
+      MonadExtra.whenM ((>= 20) <$> IORef.readIORef progress)
+                       $ Concurrent.signalQSem event
+      Concurrent.waitQSem event
+
+    thread2 progress event = do
+      IORef.modifyIORef' progress (+ 30)
+      MonadExtra.whenM ((>= 30) <$> IORef.readIORef progress)
+                       $ Concurrent.signalQSem event
+
+      IORef.modifyIORef' progress (+ 50)
+      MonadExtra.whenM ((>= 80) <$> IORef.readIORef progress )
+                       $ Concurrent.signalQSem event
+
+      Concurrent.waitQSem event
