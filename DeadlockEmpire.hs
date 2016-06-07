@@ -2,6 +2,7 @@ module DeadlockEmpire where
 
 import qualified Data.IORef as IORef
 import qualified Control.Concurrent as Concurrent
+import qualified Control.Concurrent.Async as Async
 import qualified Control.Monad as Monad
 import qualified Control.Monad.Extra as MonadExtra
 import Control.Monad.Extra ((&&^))
@@ -42,3 +43,22 @@ progConfusedCounter = do
     incrementCounter first
     incrementCounter second
   return ()
+
+progDeadlock :: IO ()
+progDeadlock = do
+  m1 <- Concurrent.newMVar ()
+  m2 <- Concurrent.newMVar ()
+  Monad.void $ Async.concurrently (thread1 m1 m2) (thread2 m1 m2)
+  where
+    thread1 m1 m2= do
+      Concurrent.takeMVar m1
+      Concurrent.takeMVar m2
+      criticalSection
+      Concurrent.putMVar m1 ()
+      Concurrent.putMVar m2 ()
+    thread2 m1 m2= do
+      Concurrent.takeMVar m2
+      Concurrent.takeMVar m1
+      criticalSection
+      Concurrent.putMVar m2 ()
+      Concurrent.putMVar m1 ()
