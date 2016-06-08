@@ -100,20 +100,23 @@ progConditionVariables = do
       Async.Concurrently (thread2 m2 q) <|>
       Async.Concurrently (thread3 m3 q)
   where
-    thread1 m qRef = do
-      Monitor.enter m
-      q <- IORef.readIORef qRef
-      Monad.unless (null q) (Monitor.wait m)
-      IORef.modifyIORef qRef init
-      Monitor.exit m
-    thread2 m qRef = do
-      Monitor.enter m
-      q <- IORef.readIORef qRef
-      Monad.when (null q) (Monitor.wait m)
-      IORef.modifyIORef qRef init
-      Monitor.exit m
-    thread3 m qRef = do
-      Monitor.enter m
-      IORef.modifyIORef qRef (42 :)
-      Monitor.pulseAll m
-      Monitor.exit m
+    thread1 m qRef =
+      forever $ do
+        Monitor.enter m
+        q <- IORef.readIORef qRef
+        Monad.when (null q) (Monitor.wait m)
+        IORef.modifyIORef qRef init
+        Monitor.exit m
+    thread2 m qRef =
+      forever $ do
+        Monitor.enter m
+        q <- IORef.readIORef qRef
+        Monad.when (null q) (Monitor.wait m)
+        IORef.modifyIORef qRef init
+        Monitor.exit m
+    thread3 m qRef =
+      forever $ do
+        Monitor.enter m
+        IORef.modifyIORef qRef (42 :)
+        Monitor.pulseAll m
+        Monitor.exit m
