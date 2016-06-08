@@ -5,6 +5,8 @@ import qualified Control.Concurrent as Concurrent
 import qualified Control.Concurrent.Async as Async
 import qualified Control.Monad as Monad
 import qualified Control.Monad.Extra as MonadExtra
+import qualified Monitor
+import Control.Applicative ((<|>))
 import Control.Monad.Extra ((&&^))
 
 type Counter = IORef.IORef Int
@@ -85,3 +87,33 @@ progCountdownEvent = do
                        $ Concurrent.signalQSem event
 
       Concurrent.waitQSem event
+
+progConditionVariables :: IO ()
+progConditionVariables = do
+  m1 <- Monitor.newMonitor
+  m2 <- Monitor.dupMonitor m1
+  m3 <- Monitor.dupMonitor m1
+  q <- IORef.newIORef []
+  Monad.void $
+    Async.runConcurrently $
+      Async.Concurrently (thread1 m1 q) <|>
+      Async.Concurrently (thread2 m2 q) <|>
+      Async.Concurrently (thread3 m3 q)
+  where
+    thread1 m qRef = do
+      Monitor.enter m
+      q <- IORef.readIORef qRef
+      Monad.unless (null q) (Monitor.wait m)
+      IORef.modifyIORef qRef init
+      Monitor.exit m
+    thread2 m qRef = do
+      Monitor.enter m
+      q <- IORef.readIORef qRef
+      Monad.when (null q) (Monitor.wait m)
+      IORef.modifyIORef qRef init
+      Monitor.exit m
+    thread3 m qRef = do
+      Monitor.enter m
+      IORef.modifyIORef qRef (42 :)
+      Monitor.pulseAll m
+      Monitor.exit m

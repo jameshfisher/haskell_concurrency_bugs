@@ -5,6 +5,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     DeadlockEmpire
+  other-modules:       Monitor
   build-depends:       async,
                        base,
                        extra
